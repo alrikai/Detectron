@@ -56,6 +56,7 @@ def initialize_gpu_from_weights_file(model, weights_file, gpu_id=0):
     automatically map logical GPU ids (starting from 0) to the physical GPUs
     specified in CUDA_VISIBLE_DEVICES.
     """
+    classes_layers_list = ['gpu_0/retnet_cls_pred_fpn3_w', 'gpu_0/retnet_cls_pred_fpn3_b']
     logger.info('Loading weights from: {}'.format(weights_file))
     ws_blobs = workspace.Blobs()
     with open(weights_file, 'r') as f:
@@ -100,12 +101,29 @@ def initialize_gpu_from_weights_file(model, weights_file, gpu_id=0):
                 # If the blob is already in the workspace, make sure that it
                 # matches the shape of the loaded blob
                 ws_blob = workspace.FetchBlob(dst_name)
-                assert ws_blob.shape == src_blobs[src_name].shape, \
-                    ('Workspace blob {} with shape {} does not match '
-                     'weights file shape {}').format(
-                        src_name,
-                        ws_blob.shape,
-                        src_blobs[src_name].shape)
+
+                #NOTE: we handle the change in #classes here
+                if ws_blob.shape != src_blobs[src_name].shape:
+                    if dst_name in classes_layers_list:
+                        logger.info('NOTE: performing surgery on {}: {} --> {}'.format(dst_name, src_blobs[src_name].shape, ws_blob.shape))
+                        # from issue #97:
+                        # - weights initialized to gaussian
+                        #   (training was only stable for me for var=0.0001),
+                        # - biases initialized to -log((1-pi/pi) for last conv layer in subnet, where pi is
+                        #   prob of anchor being foreground at start of fine-tuning
+                        #   for me this was ~ 0.00001 (you can check this from the output at the first iteration)
+                        if dst_name == classes_layers_list[0]:
+                            src_blobs[src_name] =  0.0001*np.random.randn(*(ws_blob.shape))
+                        else:
+                            src_blobs[src_name] = -np.log((1-0.00001)/0.00001)*np.ones(*(ws_blob.shape))
+                        src_blobs[src_name + '_momentum'] = np.zeros(ws_blob.shape)
+                    else:
+                        assert ws_blob.shape == src_blobs[src_name].shape, \
+                        ('Workspace blob {} with shape {} does not match '
+                        'weights file shape {}').format(
+                            src_name,
+                            ws_blob.shape,
+                            src_blobs[src_name].shape)
             workspace.FeedBlob(
                 dst_name,
                 src_blobs[src_name].astype(np.float32, copy=False))

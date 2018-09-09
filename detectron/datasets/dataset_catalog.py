@@ -185,5 +185,18 @@ DATASETS = {
             _DATA_DIR + '/VOC2012/annotations/voc_2012_trainval.json',
         DEVKIT_DIR:
             _DATA_DIR + '/VOC2012/VOCdevkit2012'
+    },
+    'NHFish-train': {
+        IM_DIR:
+            _DATA_DIR + '/NHFish-train/Images',
+        ANN_FN:
+            _DATA_DIR + '/NHFish-train/Annotations/nrtfish_train.json'
+    },
+    'NHFish-val': {
+        IM_DIR:
+            _DATA_DIR + '/NHFish-val/Images',
+        ANN_FN:
+            _DATA_DIR + '/NHFish-val/Annotations/nrtfish_val.json'
     }
+
 }
